@@ -1,0 +1,121 @@
+# Packages
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+from pathlib import Path
+from skimage.measure import label, regionprops
+from skimage.filters import threshold_otsu
+from scipy.ndimage import gaussian_filter, binary_erosion, distance_transform_edt
+from skimage.segmentation import watershed
+from skimage.feature import peak_local_max
+from skimage.morphology import extrema
+
+# Files
+import otsu_funcs as otsu
+import dog_funcs as dog
+import visualiser_funcs as visualiser
+import setup_funcs as setup
+import testing_funcs as testing
+
+# Not known atp
+um_per_pixel = 6.5 / 60
+
+min_radius_big_particles = 2
+
+# Always update this when changing images
+background = "white"
+
+# Read image with white soiling, black background
+microscope_img = setup.file_to_img("fake_microsope 2.tiff", background)
+
+# Check how noisy the background is
+noise_mean, noise_sd = setup.estimate_background_noise(microscope_img)
+
+# Add some gaussian noise
+# microscope_img = testing.add_gaussian_noise(microscope_img, mean=0, std=2)
+
+# Perform otsu
+particle_dicts_big, img_big_particles_removed, big_mask = otsu.full_otsu_stage(
+    microscope_img, min_radius_big_particles, um_per_pixel, noise_mean, noise_sd
+)
+
+# Perform triangle DoG
+particle_dicts_small, img_small_particles_removed, small_mask = dog.full_dog_stage(
+    img_big_particles_removed, min_radius_big_particles, um_per_pixel
+)
+
+# Combine particle lists
+particle_dicts = particle_dicts_big + particle_dicts_small
+
+
+###### WIP ############### READ THE END OF THE LAST CLAUDE CHAT. HALO CORRECTION FOR SMALL PARTICLES SO THAT THEY CAN BE DISTINGUISHED.
+def split_by_segmented_maxima(combined_mask, original_img, prominence=2):
+    """
+    Split aggregated regions using h-maxima (segmented maxima with fixed prominence).
+    prominence: how much darker a centre must be than its surroundings to count as separate.
+    """
+    # h-maxima on inverted image — finds dark centres separated by at least 'prominence' grey levels
+    inverted = 255 - original_img.astype(np.uint8)
+    maxima_mask = extrema.h_maxima(inverted, h=prominence)
+
+    # Only keep maxima that fall within our detected particle mask
+    maxima_mask = maxima_mask & combined_mask
+
+    # Label the maxima as seeds
+    markers = label(maxima_mask)
+
+    # Watershed from those seeds within the combined mask
+    split = watershed(original_img, markers, mask=combined_mask)
+
+    return split
+
+
+def labels_to_particle_dicts(labels, img, min_radius, um_per_pixel):
+    props = regionprops(labels, intensity_image=img)
+    particle_dicts = []
+    for p in props:
+        coords = [tuple(c) for c in p.coords.tolist()]
+        particle_dicts.append(
+            {
+                "coords": coords,
+                "centroid": (
+                    p.centroid[1] * um_per_pixel,
+                    p.centroid[0] * um_per_pixel,
+                ),
+                "effective_diameter": p.equivalent_diameter_area * um_per_pixel,
+                "major_axis": p.axis_major_length * um_per_pixel,
+                "minor_axis": p.axis_minor_length * um_per_pixel,
+                "orientation": p.orientation,
+                "pixel_count": len(coords),
+                "area": p.area * (um_per_pixel**2),
+                "outline_coords": None,
+                "circumference": None,
+                "corrected_diameter": None,
+                "corrected_area": None,
+            }
+        )
+
+    return [
+        p for p in particle_dicts if np.sqrt(p["pixel_count"] / np.pi) >= min_radius
+    ]
+
+
+# Combine masks and split aggregates
+combined_mask = big_mask | small_mask
+split_labels = split_by_segmented_maxima(combined_mask, microscope_img, prominence=10)
+particle_dicts = labels_to_particle_dicts(
+    split_labels, microscope_img, min_radius_big_particles, um_per_pixel
+)
+
+# Visualise
+# visualiser.show_overlay(microscope_img, split_labels > 0, particle_dicts)
+
+########################################################
+
+
+# Perform check for test images
+testing.compare_measured_to_true_dist("fake_microsope.json", particle_dicts)
+
+# Visualise identified particles over the original image
+visualiser.show_overlay(microscope_img, big_mask | small_mask, particle_dicts)
+# visualiser.show_overlay(img_big_particles_removed, big_mask | small_mask, particle_dicts)
