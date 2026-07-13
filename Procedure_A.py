@@ -82,6 +82,8 @@ def img_to_file(img, filename, output_dir=None):
     # Handle boolean arrays
     if np.asarray(img).dtype == bool:
         img = (np.asarray(img) * 255).astype(np.uint8)
+    elif np.asarray(img).dtype != np.uint8:
+        img = np.clip(img, 0, 255).astype(np.uint8)
     cv2.imwrite(output_path, img)
     return
 
