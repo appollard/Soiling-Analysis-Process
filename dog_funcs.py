@@ -6,7 +6,7 @@ from skimage.filters import threshold_triangle
 from skimage.measure import label, regionprops
 
 
-def apply_dog_triangle(img, s1, s2):
+def apply_dog_triangle(img, s1=1, s2=2):
     """
     Apply DoG with triangle thresholding to identify small particles.
     """
@@ -16,4 +16,4 @@ def apply_dog_triangle(img, s1, s2):
     thresh = threshold_triangle(dog)
     mask = dog < thresh
 
-    return mask, dog
+    return mask
