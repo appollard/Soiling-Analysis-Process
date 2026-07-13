@@ -11,6 +11,10 @@ from scipy.ndimage import gaussian_filter, binary_fill_holes
 from skimage.filters import threshold_triangle
 from skimage.measure import label, regionprops
 
+###################################################################################################
+# SAVING FUNCTIONS
+###################################################################################################
+
 
 def file_to_img(file, background_colour, img_dir="images"):
     """Convert a .bmp or .jpg file into a uint8 greyscale image.
@@ -82,6 +86,11 @@ def img_to_file(img, filename, output_dir=None):
     return
 
 
+###################################################################################################
+# OTSU FUNCTIONS
+###################################################################################################
+
+
 def apply_otsu(img):
     """Generate a mask for the image with a threshold determined by the otsu function.
 
@@ -97,6 +106,11 @@ def apply_otsu(img):
     mask = img < thresh
 
     return mask
+
+
+###################################################################################################
+# DOG FUNCTIONS
+###################################################################################################
 
 
 def apply_dog_triangle(img, s1=1, s2=2):
@@ -127,6 +141,11 @@ def apply_dog_triangle(img, s1=1, s2=2):
     return mask
 
 
+###################################################################################################
+# PARTICLE ANALYSIS FUNCTIONS
+###################################################################################################
+
+
 def fill_outlines(mask):
     """Fill any outlines present in a mask
 
@@ -148,7 +167,7 @@ def identify_particles(mask, um_per_pixel):
 
     Args:
         mask (np.ndarray): Boolean array where True indicates the presence of soiling.
-            um_per_pixel (float): Conversion ratio with units microns/pixel.
+        um_per_pixel (float): Conversion ratio with units microns/pixel.
 
     Returns:
         particle_dicts (list[dict]): One dict per particle, each containing:
@@ -197,6 +216,11 @@ def identify_particles(mask, um_per_pixel):
         )
 
     return particle_dicts
+
+
+###################################################################################################
+# VISUALISATION FUNCTIONS
+###################################################################################################
 
 
 def colourful_particle_map(particle_list, mask):
@@ -301,6 +325,11 @@ def show_overlay(microscope_img, mask, particle_list):
     plt.close("all")
 
 
+###################################################################################################
+# CLASS DEFINITION
+###################################################################################################
+
+
 class SoilingAnalysis:
     """Segments and analyses soiling particles from microscope images.
 
@@ -309,15 +338,20 @@ class SoilingAnalysis:
         background (str): Background colour, either 'black' or 'white'.
         um_per_pixel (float): Microns per pixel for size calibration.
         visualiser_flag (bool): If True, displays overlay of results.
-        img_dir (str | Path): Directory to search if only a filename is given. Defaults to
+        image_dir (str | Path): Directory to search if only a filename is given. Defaults to
             'images'.
+        output_dir (str | Path): Directory to output to. Defaults to 'Output Files'.
     """
 
-    def __init__(self, img_name, background, um_per_pixel, visualiser_flag):
+    def __init__(
+        self, img_name, background, um_per_pixel, visualiser_flag, image_dir, output_dir
+    ):
         self.img_name = img_name
         self.background = background
         self.um_per_pixel = um_per_pixel
         self.visualiser_flag = visualiser_flag
+        self.image_dir = image_dir
+        self.output_dir = output_dir
         # Read image with white soiling, black background
         self.microscope_img = file_to_img(img_name, background)
 
@@ -337,10 +371,11 @@ class SoilingAnalysis:
         procedure_A_mask = otsu_mask | dog_mask
 
         # Save masks
-        img_to_file(255 - 255 * otsu_mask, "Otsu Mask.png", "Output Files")
-        img_to_file(255 - 255 * dog_mask, "DoG Mask.png", "Output Files")
+
+        img_to_file(255 - 255 * otsu_mask, "Otsu Mask.png", self.output_dir)
+        img_to_file(255 - 255 * dog_mask, "DoG Mask.png", self.output_dir)
         img_to_file(
-            255 - 255 * procedure_A_mask, "Procedure A Mask.png", "Output Files"
+            255 - 255 * procedure_A_mask, "Procedure A Mask.png", self.output_dir
         )
 
         # Analyse particle count
@@ -350,6 +385,3 @@ class SoilingAnalysis:
         # Visualise the result
         if self.visualiser_flag:
             show_overlay(self.microscope_img, procedure_A_mask, particle_dicts)
-
-
-SoilingAnalysis("01.bmp", "black", 6.5 / 60, True).procedure_A()
