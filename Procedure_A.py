@@ -16,19 +16,6 @@ import setup_funcs as setup
 import testing_funcs as testing
 
 
-def apply_otsu(img):
-    """
-    Generate a mask for the image with a threshold determined by the otsu function.
-    This minimizes the variation between the greyscale values of 'clean' and 'soiled'
-    particles. This means that it ignores smaller particles.
-    """
-
-    thresh = threshold_otsu(img)
-    mask = img < thresh
-
-    return mask
-
-
 def apply_dog_triangle(img, s1, s2):
     """
     Apply DoG with triangle thresholding to identify small particles.
@@ -98,7 +85,7 @@ def procedure_A(img, background, um_per_pixel, min_radius=2):
     microscope_img = setup.file_to_img("fake_microsope 2.tiff", background)
 
     # Apply masks
-    otsu_mask = apply_otsu(img)
+    otsu_mask = otsu.apply_otsu(img)
     dog_mask = apply_dog_triangle(img)
     procedure_A_mask = otsu_mask | dog_mask
 
