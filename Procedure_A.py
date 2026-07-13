@@ -89,6 +89,14 @@ def procedure_A(img, background, um_per_pixel, min_radius=2):
     dog_mask = apply_dog_triangle(img)
     procedure_A_mask = otsu_mask | dog_mask
 
+    # Save masks
+    otsu.save_otsu_product(
+        255 - 255 * otsu_mask,
+        "Otsu Mask",
+        folder_name="Output Files/Otsu stage images",
+        base_dir=None,
+    )
+
     # Analyse particle count
     filled_mask = fill_outlines(procedure_A_mask)
     particle_dicts = identify_small_particles(filled_mask, um_per_pixel)
