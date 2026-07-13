@@ -1,4 +1,7 @@
 from skimage.filters import threshold_otsu
+import os
+import cv2
+import numpy as np
 
 
 def apply_otsu(img):

@@ -2,6 +2,7 @@
 import cv2
 import numpy as np
 from pathlib import Path
+import os
 
 
 def file_to_img(file, background_colour):
@@ -20,6 +21,24 @@ def file_to_img(file, background_colour):
     else:
         raise ValueError("Acceptable values are 'black' or white'. Case sensitive.")
     return gray_img
+
+
+def img_to_file(img, filename, folder_name, base_dir=None):
+    """Save an image to a named folder next to the script."""
+
+    if base_dir is None:
+        base_dir = os.path.dirname(__file__)
+
+    output_dir = os.path.join(base_dir, folder_name)
+    os.makedirs(output_dir, exist_ok=True)
+
+    output_path = os.path.join(output_dir, filename)
+
+    # Handle boolean arrays
+    if np.asarray(img).dtype == bool:
+        img = (np.asarray(img) * 255).astype(np.uint8)
+    cv2.imwrite(output_path, img)
+    return
 
 
 def estimate_background_noise(img, block_size=10, lowest_n=5):

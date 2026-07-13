@@ -16,19 +16,6 @@ import setup_funcs as setup
 import testing_funcs as testing
 
 
-def apply_dog_triangle(img, s1, s2):
-    """
-    Apply DoG with triangle thresholding to identify small particles.
-    """
-    img_float = img.astype(float)
-    dog = gaussian_filter(img_float, s1) - gaussian_filter(img_float, s2)
-
-    thresh = threshold_triangle(dog)
-    mask = dog < thresh
-
-    return mask
-
-
 def fill_outlines(mask):
     """
     Fill the particle outlines produced by the DoG
@@ -86,15 +73,14 @@ def procedure_A(img, background, um_per_pixel, min_radius=2):
 
     # Apply masks
     otsu_mask = otsu.apply_otsu(img)
-    dog_mask = apply_dog_triangle(img)
+    dog_mask = dog.apply_dog_triangle(img)
     procedure_A_mask = otsu_mask | dog_mask
 
     # Save masks
-    otsu.save_otsu_product(
-        255 - 255 * otsu_mask,
-        "Otsu Mask",
-        folder_name="Output Files/Otsu stage images",
-        base_dir=None,
+    setup.img_to_file(255 - 255 * otsu_mask, "Otsu Mask.png", "Output Files")
+    setup.img_to_file(255 - 255 * dog_mask, "DoG Mask.png", "Output Files")
+    setup.img_to_file(
+        255 - 255 * procedure_A_mask, "Procedure A Mask.png", "Output Files"
     )
 
     # Analyse particle count
